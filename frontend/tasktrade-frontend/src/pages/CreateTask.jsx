@@ -1,0 +1,10 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getErrorMessage, taskApi } from '../services/api'
+
+export default function CreateTask() {
+  const navigate = useNavigate(); const [form, setForm] = useState({ title: '', description: '', taskType: '', skillRequired: '' }); const [error, setError] = useState(''); const [saving, setSaving] = useState(false)
+  const submit = async (event) => { event.preventDefault(); setError(''); setSaving(true); try { const { data } = await taskApi.create(form); navigate(`/tasks/${data.id}`) } catch (err) { setError(getErrorMessage(err, 'Could not post your task.')) } finally { setSaving(false) } }
+  const update = (field, value) => setForm({ ...form, [field]: value })
+  return <div className="page-wrap narrow"><div className="page-heading"><div><p className="kicker">Put it out there</p><h1>Post a task</h1><p className="muted">Be clear and kind. The right helper is out there.</p></div></div><form className="surface form-stack" onSubmit={submit}>{error && <div className="alert error">{error}</div>}<label>Task title<input required maxLength="150" value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Help me move a small sofa" /></label><label>Description<textarea required rows="6" value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="What needs doing? Add useful context, timing, and any details." /></label><div className="form-grid"><label>Task type<input required value={form.taskType} onChange={(e) => update('taskType', e.target.value)} placeholder="Errand, study, repair..." /></label><label>Skill needed <span className="optional">optional</span><input value={form.skillRequired} onChange={(e) => update('skillRequired', e.target.value)} placeholder="e.g. Basic design" /></label></div><div className="button-row"><button type="button" className="button secondary" onClick={() => navigate(-1)}>Cancel</button><button className="button primary" disabled={saving}>{saving ? 'Posting...' : 'Post task'}</button></div></form></div>
+}
