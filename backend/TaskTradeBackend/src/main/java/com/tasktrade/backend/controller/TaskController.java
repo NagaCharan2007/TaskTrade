@@ -63,4 +63,10 @@ public class TaskController {
     public ContactResponse getContact(Authentication authentication, @PathVariable @Positive Long taskId) {
         return taskService.getContact(userService.findByEmail(authentication.getName()), taskId);
     }
+
+    @GetMapping("/{taskId}/contact/{applicantId}")
+    public ContactResponse getContact(Authentication authentication, @PathVariable @Positive Long taskId,
+                                     @PathVariable @Positive Long applicantId) {
+        return taskService.getContact(userService.findByEmail(authentication.getName()), taskId, applicantId);
+    }
 }

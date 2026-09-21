@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
-
 @RestController
 @RequestMapping("/api/applications")
 @RequiredArgsConstructor

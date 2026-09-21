@@ -4,11 +4,12 @@ import com.tasktrade.backend.dto.ContactResponse;
 import com.tasktrade.backend.dto.TaskRequest;
 import com.tasktrade.backend.dto.TaskResponse;
 import com.tasktrade.backend.entity.Task;
+import com.tasktrade.backend.entity.TaskApplication;
 import com.tasktrade.backend.entity.User;
 import com.tasktrade.backend.exception.BadRequestException;
 import com.tasktrade.backend.exception.ResourceNotFoundException;
-import com.tasktrade.backend.repository.TaskRepository;
 import com.tasktrade.backend.repository.TaskApplicationRepository;
+import com.tasktrade.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,21 +74,66 @@ public class TaskService {
     }
 
     public ContactResponse getContact(User currentUser, Long taskId) {
+        return getContact(currentUser, taskId, null);
+    }
+
+    public ContactResponse getContact(User currentUser, Long taskId, Long applicantId) {
         Task task = findById(taskId);
-        
-        if (task.getSelectedHelper() == null) {
-            throw new BadRequestException("This task does not have an accepted helper yet");
+
+        if (task.getRequester().getId().equals(currentUser.getId())) {
+            User applicantContact = resolveRequesterContact(task, applicantId);
+            return toContactResponse(applicantContact);
         }
-        
-        boolean isRequester = task.getRequester().getId().equals(currentUser.getId());
-        boolean isHelper = task.getSelectedHelper().getId().equals(currentUser.getId());
-        
-        if (!isRequester && !isHelper) {
-            throw new BadRequestException("Only the task requester or accepted helper can access this contact information");
+
+        if (task.getSelectedHelper() != null && task.getSelectedHelper().getId().equals(currentUser.getId())) {
+            return toContactResponse(task.getRequester());
         }
-        
-        User contactUser = isRequester ? task.getSelectedHelper() : task.getRequester();
-        return new ContactResponse(contactUser.getName(), contactUser.getEmail());
+
+        TaskApplication activeApplication = applicationRepository.findByTaskIdAndApplicantId(taskId, currentUser.getId())
+                .filter(this::isActiveApplication)
+                .orElse(null);
+
+        if (activeApplication != null) {
+            return toContactResponse(task.getRequester());
+        }
+
+        throw new BadRequestException("You are not allowed to contact anyone for this task");
+    }
+
+    private User resolveRequesterContact(Task task, Long applicantId) {
+        if (task.getSelectedHelper() != null) {
+            return task.getSelectedHelper();
+        }
+
+        if (applicantId != null) {
+            TaskApplication application = applicationRepository.findByTaskIdAndApplicantId(task.getId(), applicantId)
+                    .orElseThrow(() -> new BadRequestException("No active application exists for that applicant"));
+            if (!isActiveApplication(application)) {
+                throw new BadRequestException("That application is not active");
+            }
+            return application.getApplicant();
+        }
+
+        List<TaskApplication> activeApplications = applicationRepository.findByTaskIdOrderByAppliedAtAsc(task.getId())
+                .stream()
+                .filter(this::isActiveApplication)
+                .toList();
+
+        if (activeApplications.isEmpty()) {
+            throw new BadRequestException("There is no active applicant to contact for this task");
+        }
+        if (activeApplications.size() > 1) {
+            throw new BadRequestException("Multiple active applicants exist for this task; please specify an applicantId");
+        }
+        return activeApplications.get(0).getApplicant();
+    }
+
+    private ContactResponse toContactResponse(User user) {
+        return new ContactResponse(user.getName(), user.getEmail());
+    }
+
+    private boolean isActiveApplication(TaskApplication application) {
+        return application != null && ("PENDING".equals(application.getStatus()) || "ACCEPTED".equals(application.getStatus()));
     }
 
     private void requireOwner(Task task, User user) {
