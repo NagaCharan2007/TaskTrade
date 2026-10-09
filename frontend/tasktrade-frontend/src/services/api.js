@@ -1,7 +1,12 @@
 import axios from 'axios'
 
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.DEV ? 'http://localhost:8080' : 'https://tasktrade-api.onrender.com')
+const normalizedBaseUrl = configuredBaseUrl.replace(/\/+$/, '')
+const apiBaseUrl = normalizedBaseUrl.endsWith('/api') ? normalizedBaseUrl : `${normalizedBaseUrl}/api`
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' },
 })
 
